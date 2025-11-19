@@ -1998,7 +1998,7 @@ class DiverterBase(fnconfig.Config):
         self.logger.info(f"Generated new HTML report: {output_filename}")
 
     def isProcessBlackListed(self, proto, sport=None, process_name=None, dport=None):
-        """Checks if a process is blacklisted.
+        """Checks if a process is blacklisted or not in the whitelist.
         Expected arguments are either:
         - process_name and dport, or
         - sport
@@ -2026,12 +2026,27 @@ class DiverterBase(fnconfig.Config):
                             process_name))
                 return True, process_name, pid
 
+            # Check process whitelist - treat non-whitelisted processes like blacklisted ones
+            if len(self.whitelist_processes) and (process_name not in self.whitelist_processes):
+                self.pdebug(DIGN, ('Ignoring %s packet from process %s ' +
+                            'not in the process whitelist.') % (proto,
+                            process_name))
+                return True, process_name, pid
+
             # Check per-listener blacklisted process list
             if self.listener_ports.isProcessBlackListHit(
                     proto, dport, process_name):
                 self.pdebug(DIGN, ('Ignoring %s request packet from ' +
                             'process %s in the listener process ' +
                             'blacklist.') % (proto, process_name))
+                return True, process_name, pid
+
+            # Check per-listener whitelisted process list
+            if self.listener_ports.isProcessWhiteListMiss(
+                    proto, dport, process_name):
+                self.pdebug(DIGN, ('Ignoring %s request packet from ' +
+                            'process %s not in the listener process ' +
+                            'whitelist.') % (proto, process_name))
                 return True, process_name, pid
         return False, process_name, pid
     
